@@ -1,0 +1,9 @@
+project_id: promising-idea-500010-m5
+dataset: migration_demo
+region: asia-south1
+
+buckets:
+  raw: migration-raw-zone
+  processed: migration-processed-zone
+  curated: migration-curated-zone
+  
