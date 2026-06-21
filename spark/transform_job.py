@@ -2,47 +2,43 @@ from pyspark.sql import SparkSession
 from pyspark.sql.functions import col, trim, upper
 
 # -----------------------------
-# CREATE SPARK SESSION
+# SPARK SESSION (GCS SAFE CONFIG)
 # -----------------------------
 spark = SparkSession.builder \
     .appName("MigrationPipeline") \
+    .config("spark.sql.files.maxPartitionBytes", "134217728") \
+    .config("spark.hadoop.fs.gs.outputstream.upload.chunk.size", "8388608") \
     .getOrCreate()
 
 # -----------------------------
-# INPUT PATH (GCS RAW)
+# INPUT
 # -----------------------------
 input_path = "gs://migration-raw-zone/customers/*.csv"
 
-# -----------------------------
-# READ DATA
-# -----------------------------
 df = spark.read.option("header", True).csv(input_path)
 
-print("Raw count:", df.count())
+# ❌ Avoid multiple full scans (remove duplicate count)
+print("Raw count:", df.rdd.getNumPartitions())
 
 # -----------------------------
-# DATA CLEANING
+# CLEANING
 # -----------------------------
-
-# Remove duplicates
 df = df.dropDuplicates()
 
-# Trim + uppercase name column (example transformation)
 df = df.withColumn("name", upper(trim(col("name"))))
-
-# Remove null emails
 df = df.filter(col("email").isNotNull())
 
-print("Cleaned count:", df.count())
+# optional: cache BEFORE any action if reused
+df.cache()
+
+print("Cleaned rows approx ready")
 
 # -----------------------------
-# OUTPUT PATH (PROCESSED ZONE)
+# OUTPUT
 # -----------------------------
 output_path = "gs://migration-processed-zone/customers/"
 
-# -----------------------------
-# WRITE DATA
-# -----------------------------
-df.write.mode("overwrite").parquet(output_path)
+# IMPORTANT: coalesce helps stabilize write on Dataproc small clusters
+df.coalesce(4).write.mode("overwrite").parquet(output_path)
 
-print("✅ Spark job completed")
+print("✅ Spark job completed successfully")
