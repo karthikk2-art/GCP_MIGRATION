@@ -1,0 +1,13 @@
+.history/
+__pycache__/
+*.pyc
+
+venv/
+airflow_env/
+
+.terraform/
+*.tfstate
+*.tfstate.backup
+
+*.json
+.vscode/
